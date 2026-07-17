@@ -1,0 +1,57 @@
+body {
+  margin: 0;
+  background: #101322;
+  color: #f7f8ff;
+  font: 16px system-ui;
+}
+
+main {
+  max-width: 760px;
+  margin: auto;
+  padding: 20px;
+}
+
+.card {
+  background: #1a2035;
+  border: 1px solid #354263;
+  border-radius: 14px;
+  padding: 18px;
+  margin: 12px 0;
+}
+
+input,
+select,
+button {
+  padding: 10px;
+  border-radius: 8px;
+  border: 0;
+  margin: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+button {
+  background: #ffcf5a;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.me {
+  color: #ffcf5a;
+  font-weight: bold;
+}
+
+.match {
+  padding: 10px;
+  border-left: 4px solid #6eb9ff;
+  margin: 8px 0;
+  background: #141a2d;
+}
+
+.live {
+  border-color: #64e0b1;
+}
+
+.hint {
+  color: #aeb8d7;
+}
