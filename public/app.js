@@ -1,260 +1,310 @@
 const app = document.querySelector("#app");
 const query = new URLSearchParams(location.search);
-
 const invite = query.get("invite");
 const master = query.get("master");
 
 let mine = JSON.parse(localStorage.getItem("gn-player") || "null");
-let data;
+let tournament;
 
-const api = (path, body = {}) =>
-  fetch(`/api/${invite}/${path}`, {
-    method: path === "state" ? "GET" : "POST",
+const api = async (action, body = {}) => {
+  const response = await fetch(`/api/${invite}/${action}`, {
+    method: action === "state" ? "GET" : "POST",
     headers: { "content-type": "application/json" },
-    body: path === "state"
-      ? undefined
-      : JSON.stringify({ ...body, master })
-  }).then((response) => response.json());
+    body: action === "state" ? undefined : JSON.stringify({ ...body, master })
+  });
 
-let latestLoad = 0;
+  const result = await response.json();
+
+  if (!response.ok || result.error) throw new Error(result.error || "Request failed");
+
+  return result;
+};
+
+const name = (id) => tournament.players.find((p) => p.id === id)?.name || "TBD";
+const me = () => mine && tournament.players.find((p) => p.id === mine.id);
 
 async function load() {
-  const loadNumber = ++latestLoad;
+  try {
+    if (!invite) return home();
+    tournament = await api("state");
+    render();
+  } catch (error) {
+    app.innerHTML = `<div class="card"><h1>Game Night Live</h1><p>${error.message}</p><button onclick="load()">Try again</button></div>`;
+  }
+}
 
-  if (!invite) {
-    app.innerHTML = `
-      <div class="card">
-        <h1>Game Night Live</h1>
-        <button id="create">Create tournament</button>
+function home() {
+  app.innerHTML = `<div class="card"><h1>Game Night Live</h1><button onclick="create()">Create tournament</button></div>`;
+}
+
+async function create() {
+  const result = await fetch("/api/create", { method: "POST" }).then((r) => r.json());
+  location.href = `?invite=${result.invite}&master=${result.master}`;
+}
+
+function playerList() {
+  return [...tournament.players]
+    .sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses))
+    .map((p, index) => `
+      <div class="${p.id === me()?.id ? "me" : ""}">
+        ${index + 1}. ${p.name} - ${p.wins}W / ${p.losses}L
       </div>
-    `;
-
-    document.querySelector("#create").onclick = async () => {
-      const response = await fetch("/api/create", { method: "POST" });
-      const tournament = await response.json();
-
-      location = `?invite=${tournament.invite}&master=${tournament.master}`;
-    };
-
-    return;
-  }
-
-  const newData = await api("state");
-
-  /* Ignore an older refresh that finishes after a newer request. */
-  if (loadNumber !== latestLoad) return;
-
-  data = newData;
-  render();
+    `).join("");
 }
 
-setInterval(() => {
-  const typing = document.activeElement?.matches("input, textarea, select");
-
-  if (invite && !typing) {
-    load();
-  }
-}, 5000);
-
-function name(playerId) {
-  return data.players.find((player) => player.id === playerId)?.name || "TBD";
+function pointsList() {
+  return [...tournament.players]
+    .sort((a, b) => b.points - a.points)
+    .map((p, index) => `
+      <div class="${p.id === me()?.id ? "me" : ""}">
+        ${index + 1}. ${p.name} - ${p.points} points
+      </div>
+    `).join("");
 }
 
-function render() {
-  const me = mine && data.players.find((player) => player.id === mine.id);
+function bracket(stage, title) {
+  const matches = tournament.matches.filter((m) => m.stage === stage);
 
-  const nextMatch = data.matches.find(
-    (match) =>
-      match.status !== "done" &&
-      (match.a === mine?.id || match.b === mine?.id)
-  );
+  return `
+    <div class="card">
+      <h2>${title}</h2>
+      ${matches.length
+        ? matches.map(matchView).join("")
+        : "<p class='hint'>Revealed after pool play.</p>"
+      }
+    </div>
+  `;
+}
 
-  const waitCount = data.matches.filter(
-    (match) => match.status === "ready" && match.id !== nextMatch?.id
-  ).length;
+function matchView(match) {
+  const isMaster = Boolean(master);
 
-  const matchHtml = data.matches.map((match) => `
+  return `
     <div class="match ${match.status === "live" ? "live" : ""}">
-      <b class="${match.a === mine?.id ? "me" : ""}">${name(match.a)}</b>
+      <strong class="${match.a === me()?.id ? "me" : ""}">${name(match.a)}</strong>
       vs
-      <b class="${match.b === mine?.id ? "me" : ""}">${name(match.b)}</b>
-      - ${match.status}
+      <strong class="${match.b === me()?.id ? "me" : ""}">${name(match.b)}</strong>
+      <br>
+      <span class="hint">${match.label} - ${match.status}</span>
 
       ${match.characters
         ? `<br>${match.characters[match.a]} vs ${match.characters[match.b]}`
         : ""
       }
 
-      ${master && match.status === "ready"
-        ? `<button onclick="go('${match.id}')">Start</button>`
+      ${isMaster && match.status === "ready"
+        ? `<button onclick="startGame('${match.id}')">Start game</button>`
         : ""
       }
 
-      ${master && match.status === "live"
+      ${isMaster && match.status === "live"
         ? `
-          <button onclick="win('${match.id}', '${match.a}')">${name(match.a)} won</button>
-          <button onclick="win('${match.id}', '${match.b}')">${name(match.b)} won</button>
+          <button onclick="winner('${match.id}', '${match.a}')">${name(match.a)} won</button>
+          <button onclick="winner('${match.id}', '${match.b}')">${name(match.b)} won</button>
         `
         : ""
       }
-    </div>
-  `).join("");
-
-  app.innerHTML = `
-    <div class="card">
-      <h1>Game Night Live</h1>
-      <p class="hint">${data.phase}</p>
-
-      ${!me
-        ? `
-          <input id="n" placeholder="Your name">
-          <button onclick="join()">Join tournament</button>
-        `
-        : `
-    ``      <b>${me.name}</b> - ${me.points} betting points<br>
-
-            <label>Your five characters, separated by commas</label>
-            <input
-              id="characters"
-              value="${me.characters.join(", ")}"
-              placeholder="Mario, Link, Kirby, Samus, Fox"
-            >
-            <button onclick="saveCharacters()">Save my characters</button>
-
-  <hr>``
-          Next: ${nextMatch ? `${name(nextMatch.a)} vs ${name(nextMatch.b)}` : "No match yet"}<br>
-          Matches to wait: ${nextMatch ? waitCount : "-"}
-        `
-      }
-
-      ${master
-        ? `
-          <div>
-            <label>Player invite link — share this, not your master link:</label>
-            <input
-              readonly
-              value="${location.origin}${location.pathname}?invite=${invite}"
-              onclick="this.select()"
-            >
-          </div>
-          <hr>
-          <hr>
-          <input id="add" placeholder="Add player without phone">
-          <button onclick="addPlayer()">Add player</button>
-
-          ${data.phase === "registration"
-            ? `<button onclick="startTournament()">Close registration & create pool matches</button>`
-            : ""
-          }
-        `
-        : ""
-      }
-    </div>
-
-    <div class="card">
-      <h2>Matches</h2>
-      ${matchHtml || "No matches yet."}
-    </div>
-
-    <div class="card">
-      <h2>Players</h2>
-      ${data.players.map((player) => `
-        <div class="${player.id === mine?.id ? "me" : ""}">
-          ${player.name} - ${player.points} pts
-        </div>
-      `).join("")}
     </div>
   `;
 }
 
+function betPanel() {
+  const player = me();
+  const ready = tournament.matches.find(
+    (m) => m.status === "ready" && ![m.a, m.b].includes(player?.id)
+  );
+
+  if (!player || !ready || tournament.phase === "registration") return "";
+
+  return `
+    <div class="card">
+      <h2>Place a bet</h2>
+      <p>${name(ready.a)} vs ${name(ready.b)}</p>
+
+      <select id="betPick">
+        <option value="${ready.a}">${name(ready.a)}</option>
+        <option value="${ready.b}">${name(ready.b)}</option>
+      </select>
+
+      <input id="betStake" type="number" min="1" max="${player.points}" value="10">
+      <button onclick="bet('${ready.id}')">Place bet</button>
+    </div>
+  `;
+}
+
+function render() {
+  const player = me();
+  const isMaster = Boolean(master);
+  const inviteLink = `${location.origin}${location.pathname}?invite=${invite}`;
+
+  app.innerHTML = `
+    <div class="card">
+      <h1>${isMaster ? "Game Master" : "Tournament"} Lobby</h1>
+      <p class="hint">Status: ${tournament.phase}</p>
+
+      ${tournament.champion
+        ? `<h2>Champion: ${name(tournament.champion)}</h2>`
+        : ""
+      }
+
+      ${isMaster ? `
+        <label>Player invite link</label>
+        <input readonly value="${inviteLink}" onclick="this.select()">
+
+        <h2>Joining participants (${tournament.players.length})</h2>
+        ${tournament.players.map((p) => `
+          <div>${p.name} - ${p.characters.length === 5 ? "ready" : "needs characters"}</div>
+        `).join("")}
+
+        ${tournament.phase === "registration" ? `
+          <hr>
+          <input id="manualName" placeholder="Manual player name">
+          <input id="manualCharacters" placeholder="Mario, Link, Kirby, Samus, Fox">
+          <button onclick="add()">Add player</button>
+          <button onclick="start()">Start tournament</button>
+        ` : ""}
+      ` : ""}
+
+      ${!player ? `
+        <h2>Join tournament</h2>
+        <input id="joinName" placeholder="Your name">
+        <button onclick="join()">Join tournament</button>
+      ` : `
+        <h2 class="me">${player.name}</h2>
+        <p>${player.points} betting points</p>
+
+        ${tournament.phase === "registration" ? `
+          <input id="myCharacters" value="${player.characters.join(", ")}" placeholder="Mario, Link, Kirby, Samus, Fox">
+          <button onclick="characters()">Save five characters</button>
+        ` : ""}
+      `}
+    </div>
+
+    ${betPanel()}
+
+    <div class="card">
+      <h2>Game leaderboard</h2>
+      ${playerList()}
+    </div>
+
+    <div class="card">
+      <h2>Betting leaderboard</h2>
+      ${pointsList()}
+    </div>
+
+    <div class="card">
+      <h2>Pool matches</h2>
+      ${tournament.matches.filter((m) => m.stage === "pool").map(matchView).join("") || "<p class='hint'>Not started.</p>"}
+    </div>
+
+    ${bracket("winner", "Winners Bracket")}
+    ${bracket("loser", "Losers Bracket")}
+    ${bracket("final", "Grand Final")}
+  `;
+}
+
 async function join() {
-  const button = document.querySelector('button[onclick="join()"]');
-  button.disabled = true;
-  button.textContent = "Joining...";
-
-  const result = await api("join", {
-    name: document.querySelector("#n").value
-  });
-
-  if (result.error) {
-    alert(result.error);
-    button.disabled = false;
-    button.textContent = "Join tournament";
-    return;
+  try {
+    const result = await api("join", { name: document.querySelector("#joinName").value.trim() });
+    localStorage.setItem("gn-player", JSON.stringify(result));
+    location.reload();
+  } catch (error) {
+    alert(error.message);
   }
-
-  mine = result;
-  localStorage.setItem("gn-player", JSON.stringify(result));
-
-  await load();
 }
 
-async function addPlayer() {
-  const result = await api("add", { name: document.querySelector("#add").value });
-
-  if (result.error) alert(result.error);
-  load();
-}
-
-async function startTournament() {
-  const result = await api("start");
-
-  if (result.error) alert(result.error);
-  load();
-}
-
-async function go(match) {
-  const result = await api("go", { match });
-
-  if (result.error) alert(result.error);
-  load();
-}
-
-async function win(match, winner) {
-  await api("win", { match, winner });
-  load();
-}
-
-async function saveCharacters() {
-  const characters = document.querySelector("#characters").value
-    .split(",")
-    .map((character) => character.trim())
-    .filter(Boolean);
-
-  if (characters.length !== 5) {
-    return alert("Please enter exactly five characters.");
+async function characters() {
+  try {
+    const characters = document.querySelector("#myCharacters").value.split(",").map((x) => x.trim()).filter(Boolean);
+    await api("characters", { id: mine.id, key: mine.key, characters });
+    load();
+  } catch (error) {
+    alert(error.message);
   }
+}
 
-  if (new Set(characters).size !== 5) {
-    return alert("Your five characters must be different.");
+async function add() {
+  try {
+    const name = document.querySelector("#manualName").value.trim();
+    const characters = document.querySelector("#manualCharacters").value.split(",").map((x) => x.trim()).filter(Boolean);
+    await api("add", { name, characters });
+    load();
+  } catch (error) {
+    alert(error.message);
   }
+}
 
-  const result = await api("characters", {
-    id: mine.id,
-    key: mine.key,
-    characters
-  });
+async function start() {
+  try {
+    await api("start");
+    load();
+  } catch (error) {
+    alert(error.message);
+  }
+}
 
-  if (result.error) return alert(result.error);
+async function startGame(match) {
+  try {
+    await api("go", { match });
+    load();
+  } catch (error) {
+    alert(error.message);
+  }
+}
 
-  load();
+async function winner(match, winner) {
+  try {
+    await api("win", { match, winner });
+    load();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+async function bet(match) {
+  try {
+    const player = me();
+    const stake = Number(document.querySelector("#betStake").value);
+
+    if (player.points <= 0) {
+      alert("You cannot place a bet because you have no points left.");
+      return;
+    }
+
+    if (!Number.isInteger(stake) || stake < 1) {
+      alert("Enter a valid stake of at least 1 point.");
+      return;
+    }
+
+    if (stake > player.points) {
+      alert(`You only have ${player.points} points available.`);
+      return;
+    }
+
+    await api("bet", {
+      match,
+      id: mine.id,
+      key: mine.key,
+      pick: document.querySelector("#betPick").value,
+      stake
+    });
+
+    alert("Bet placed. Your stake has been deducted.");
+    load();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 Object.assign(window, {
-  join,
-  addPlayer,
-  startTournament,
-  go,
-  win
+  load, create, join, characters, add, start,
+  startGame, winner, bet
 });
 
-Object.assign(window, {
-  join,
-  addPlayer,
-  startTournament,
-  go,
-  win,
-  saveCharacters
-});
+if (invite) {
+  setInterval(() => {
+    if (!document.activeElement?.matches("input, select")) load();
+  }, 5000);
+}
 
 load();
