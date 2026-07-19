@@ -135,6 +135,19 @@ function betPanel() {
 function render() {
   const player = me();
   const isMaster = Boolean(master);
+  if (tournament.phase === "stopped") {
+  app.innerHTML = `
+    <div class="card">
+      <h1>Tournament stopped</h1>
+      <p class="hint">
+        The game master has ended this tournament.
+      </p>
+    </div>
+  `;
+
+  return;
+}
+
   const inviteLink = `${location.origin}${location.pathname}?invite=${invite}`;
 
   app.innerHTML = `
@@ -150,6 +163,12 @@ function render() {
       ${isMaster ? `
         <label>Player invite link</label>
         <input readonly value="${inviteLink}" onclick="this.select()">
+
+        <button onclick="stopTournament()">
+    Stop tournament
+  </button>
+
+  <h2>Joining participants (${tournament.players.length})</h2>
 
         <h2>Joining participants (${tournament.players.length})</h2>
         ${tournament.players.map((p) => `
@@ -261,6 +280,23 @@ async function winner(match, winner) {
   }
 }
 
+async function stopTournament() {
+  const confirmed = confirm(
+    "Stop this tournament? This cannot be undone for the current game night."
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await api("stop");
+    await load();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
 async function bet(match) {
   try {
     const player = me();
@@ -298,7 +334,7 @@ async function bet(match) {
 
 Object.assign(window, {
   load, create, join, characters, add, start,
-  startGame, winner, bet
+  startGame, winner, bet, stopTournament
 });
 
 if (invite) {

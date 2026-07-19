@@ -159,6 +159,15 @@ export class TournamentRoom {
 
     if (!isMaster) return json({ error: "Game master access required" }, 403);
 
+    if (action === "stop") {
+  t.phase = "stopped";
+  t.stoppedAt = new Date().toISOString();
+
+  await this.save(t);
+
+  return json({ ok: true });
+}
+
     if (action === "add") {
       const name = body.name?.trim();
       const characters = cleanCharacters(body.characters);
