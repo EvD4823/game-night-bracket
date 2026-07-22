@@ -1,8 +1,16 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   background: #101322;
   color: #f7f8ff;
-  font: 16px system-ui;
+  font: 16px system-ui, sans-serif;
 }
 
 main {
@@ -19,39 +27,107 @@ main {
   margin: 12px 0;
 }
 
+.hero {
+  margin-top: 12vh;
+  text-align: center;
+}
+
+.hint,
+small {
+  color: #aeb8d7;
+}
+
+.notice {
+  background: #7b2934;
+  border-radius: 10px;
+  padding: 14px;
+  font-weight: bold;
+}
+
 input,
 select,
 button {
-  padding: 10px;
-  border-radius: 8px;
-  border: 0;
-  margin: 4px;
   width: 100%;
-  box-sizing: border-box;
+  margin: 4px 0;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+}
+
+input,
+select {
+  background: white;
+  color: #111;
 }
 
 button {
   background: #ffcf5a;
-  font-weight: bold;
+  color: #17130a;
+  font-weight: 700;
   cursor: pointer;
+}
+
+.danger {
+  background: #ee6c74;
+  color: white;
 }
 
 .me {
   color: #ffcf5a;
-  font-weight: bold;
+  font-weight: 800;
 }
 
 .match {
-  padding: 10px;
-  border-left: 4px solid #6eb9ff;
-  margin: 8px 0;
+  margin: 10px 0;
+  padding: 12px;
   background: #141a2d;
+  border-left: 4px solid #6eb9ff;
+  border-radius: 6px;
 }
 
-.live {
+.match.live {
   border-color: #64e0b1;
 }
 
-.hint {
-  color: #aeb8d7;
+.match.done {
+  opacity: 0.65;
+}
+
+.fighters {
+  color: #64e0b1;
+}
+
+.bet,
+.winner-buttons {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.bet {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.winner-buttons {
+  grid-template-columns: 1fr 1fr;
+}
+
+code {
+  overflow-wrap: anywhere;
+  color: #8ed0ff;
+}
+
+@media (max-width: 500px) {
+  main {
+    padding: 12px;
+  }
+
+  .bet {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .bet button {
+    grid-column: 1 / -1;
+  }
 }

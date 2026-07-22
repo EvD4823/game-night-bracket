@@ -1,0 +1,9 @@
+services:
+  game-night:
+    build: .
+    container_name: game-night-live
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
