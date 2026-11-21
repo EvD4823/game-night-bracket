@@ -2,11 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Game Night Live</title>
     <link rel="stylesheet" href="style.css">
   </head>
   <body>
+    <button class="rules-button" onclick="toggleRules()" aria-label="Tournament rules">?</button>
+
+    <div id="rules-modal" class="rules-modal" hidden>
+      <div class="rules-panel" role="dialog" aria-modal="true" aria-labelledby="rules-title">
+        <button class="rules-close" onclick="toggleRules()" aria-label="Close rules">X</button>
+
+        <h2 id="rules-title">Tournament rules</h2>
+
+        <h3>1. Pool stage</h3>
+        <p>Everyone plays everyone once. The pool standings determine who starts in the winners bracket and who starts in the losers bracket.</p>
+
+        <h3>2. Winners and losers brackets</h3>
+        <p>Lose in the winners bracket and you automatically move into the next available losers-bracket round. Lose in the losers bracket and you are eliminated.</p>
+
+        <h3>3. Grand final</h3>
+        <p>The winners-bracket champion needs one grand-final win. The losers-bracket champion must win twice: winning the first set creates a reset set that decides the tournament.</p>
+
+        <h3>4. Characters</h3>
+        <p>In a randomized-character tournament, every player selects five fighters and the app randomly selects one before each match. In a regular tournament, players choose characters normally.</p>
+
+        <h3>5. Betting</h3>
+        <p>Betting is open until the game master starts the match. A bet is deducted immediately. Correct bets return double the stake; losing bets are lost.</p>
+
+        <h3>6. Game master</h3>
+        <p>The game master starts matches, confirms winners, shares the invite link, and can stop the tournament.</p>
+      </div>
+    </div>
+
     <main id="app"></main>
     <script src="app.js"></script>
   </body>
